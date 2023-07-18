@@ -1,0 +1,51 @@
+trigger:
+  branches:
+    include:
+      - main  # Change this to your main branch name
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.9'
+
+- script: |
+    python -m pip install --upgrade pip
+    pip install azure-functions
+  displayName: 'Install Azure Functions SDK'
+
+- task: AzureResourceGroupDeployment@2
+  inputs:
+    azureSubscription: ''
+    resourceGroupName: ''  # Replace with your resource group name
+    location: ''  # Change this to your desired location
+    csmFile: '$(System.DefaultWorkingDirectory)/*/*'
+    csmParametersFile: '$(System.DefaultWorkingDirectory)/*/*'
+  displayName: 'Deploy Azure resources'
+
+- task: ArchiveFiles@2
+  displayName: 'Create project zip'
+  inputs:
+    rootFolderOrFile: '$(System.DefaultWorkingDirectory)/*/*'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/*/*/*.zip'
+    replaceExistingArchive: true
+
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish zip artifact'
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)/*/*/*.zip'
+    publishLocation: 'pipeline'
+  
+- task: AzureFunctionApp@1
+  displayName: 'Deploy Function App'
+  inputs:
+    azureSubscription: '*'
+    appType: 'functionAppLinux'
+    resourceGroupName: '*'
+    appName: '*'
+    package: '$(Build.ArtifactStagingDirectory)/*/*/*.zip'
+    deploymentMethod: 'zipDeploy'
